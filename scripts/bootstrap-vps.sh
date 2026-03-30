@@ -1,21 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL=""
+REPO_URL="https://github.com/hoangtuvungcao/gen--waf.git"
 REPO_REF="main"
-WORK_DIR="/tmp/genwaf-bootstrap"
+WORK_DIR="/opt/genwaf-src"
 INSTALL_ARGS=()
 
 usage() {
   cat <<'EOF'
 Usage:
-  curl -fsSL https://raw.githubusercontent.com/<org>/<repo>/main/scripts/bootstrap-vps.sh | \
+  curl -fsSL https://raw.githubusercontent.com/hoangtuvungcao/gen--waf/main/scripts/bootstrap-vps.sh | \
     sudo bash -s -- \
-      --repo-url https://github.com/<org>/<repo>.git \
-      --repo-ref main \
       --domain app.example.com \
       --origin 10.0.0.10:8080 \
       [--edge-mode cloudflare]
+
+Tác dụng:
+- cài công cụ nền cho VPS trắng
+- clone source code mới nhất
+- chuẩn bị môi trường build/run cho GEN WAF
+- gọi installer production chính
 EOF
 }
 
@@ -40,12 +44,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "$REPO_URL" ]]; then
-  echo "bắt buộc phải truyền --repo-url" >&2
-  usage >&2
-  exit 1
-fi
-
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
   echo "bootstrap cần chạy bằng root hoặc sudo" >&2
   exit 1
@@ -58,4 +56,5 @@ rm -rf "$WORK_DIR"
 git clone --depth 1 --branch "$REPO_REF" "$REPO_URL" "$WORK_DIR"
 
 cd "$WORK_DIR"
-bash ./scripts/install-vps.sh "${INSTALL_ARGS[@]}"
+bash ./scripts/prepare-vps-host.sh --skip-firewall
+bash ./scripts/install-vps.sh --skip-deps "${INSTALL_ARGS[@]}"

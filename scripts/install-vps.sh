@@ -95,19 +95,7 @@ build_binaries() {
 }
 
 install_dependencies() {
-  apt-get update
-  apt-get install -y \
-    build-essential \
-    clang \
-    cmake \
-    curl \
-    jq \
-    libbpf-dev \
-    libssl-dev \
-    openssl \
-    pkg-config \
-    psmisc \
-    python3
+  bash "$ROOT_DIR/scripts/prepare-vps-host.sh" --skip-firewall
 }
 
 start_services_with_retry() {
@@ -215,14 +203,14 @@ if [[ "$SKIP_DEPS" -eq 0 || "$SKIP_SYSTEMD" -eq 0 || "$SKIP_SERVICE_USER" -eq 0 
   fi
 fi
 
+if [[ "$SKIP_DEPS" -eq 0 ]]; then
+  install_dependencies
+fi
+
 require_command go
 require_command cmake
 require_command curl
 require_command python3
-
-if [[ "$SKIP_DEPS" -eq 0 ]]; then
-  install_dependencies
-fi
 
 build_binaries
 

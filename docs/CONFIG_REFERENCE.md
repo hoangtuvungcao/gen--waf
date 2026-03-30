@@ -7,6 +7,10 @@
 - [`configs/templates/single-node.vps.yaml.tmpl`](../configs/templates/single-node.vps.yaml.tmpl)
   template được render khi cài lên VPS
 
+Nếu cần diễn giải đầy đủ hơn theo từng field, xem thêm:
+
+- [`CONFIG_FULL_REFERENCE.vi.md`](CONFIG_FULL_REFERENCE.vi.md)
+
 ## Chuẩn hóa để dễ bảo trì
 
 Dự án hiện chuẩn hóa:
@@ -95,3 +99,10 @@ Dùng khi:
 - YAML chính: `/etc/genwaf/genwaf.yaml`
 - effective config: `/var/lib/genwaf/effective.json`
 - env cho systemd: `/etc/genwaf/genwaf.env`
+
+## Script liên quan tới cấu hình
+
+- [`../scripts/render-production-config.sh`](../scripts/render-production-config.sh)
+  render template thành YAML thật
+- [`../scripts/rebuild-effective.sh`](../scripts/rebuild-effective.sh)
+  dựng lại effective config sau khi sửa YAML

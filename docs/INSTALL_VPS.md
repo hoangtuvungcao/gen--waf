@@ -28,6 +28,34 @@ Trình duyệt
   - `127.0.0.1:8080`
   - `10.0.0.10:8080`
 
+## Luồng cho VPS trắng hoàn toàn
+
+Nếu VPS chưa có gì ngoài hệ điều hành, đi theo đúng thứ tự này:
+
+1. dùng [`../scripts/bootstrap-vps.sh`](../scripts/bootstrap-vps.sh) để tải source code và gọi bootstrap tổng
+2. bootstrap sẽ chạy [`../scripts/prepare-vps-host.sh`](../scripts/prepare-vps-host.sh) để cài toolchain và tối ưu host
+3. bootstrap tiếp tục gọi [`../scripts/install-vps.sh`](../scripts/install-vps.sh) để render config, build binary, cài service, và khởi động hệ thống
+
+Lệnh tối giản:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hoangtuvungcao/gen--waf/main/scripts/bootstrap-vps.sh | \
+  sudo bash -s -- \
+    --domain app.example.com \
+    --origin 10.0.0.10:8080 \
+    --edge-mode cloudflare
+```
+
+## Script chuẩn bị môi trường làm gì
+
+[`../scripts/prepare-vps-host.sh`](../scripts/prepare-vps-host.sh) sẽ:
+
+- cài các gói build và runtime cần thiết
+- tải và cài Go stable mới nhất từ `go.dev`
+- tạo profile PATH cho Go
+- ghi sysctl cơ bản phù hợp với reverse proxy
+- mở `ufw` cho `OpenSSH` và `80/tcp` nếu `ufw` có mặt
+
 ## Cài đặt sau khi clone repo
 
 ```bash
@@ -94,10 +122,8 @@ sudo systemctl restart genwaf-gendp
 ## Bootstrap từ VPS trắng sau khi đã public GitHub
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<org>/<repo>/main/scripts/bootstrap-vps.sh | \
+curl -fsSL https://raw.githubusercontent.com/hoangtuvungcao/gen--waf/main/scripts/bootstrap-vps.sh | \
   sudo bash -s -- \
-    --repo-url https://github.com/<org>/<repo>.git \
-    --repo-ref main \
     --domain app.example.com \
     --origin 10.0.0.10:8080 \
     --edge-mode cloudflare
@@ -107,4 +133,5 @@ curl -fsSL https://raw.githubusercontent.com/<org>/<repo>/main/scripts/bootstrap
 
 - [Cấu hình Cloudflare Flexible](CLOUDFLARE_FLEXIBLE.vi.md)
 - [Tham chiếu cấu hình](CONFIG_REFERENCE.md)
+- [Tham chiếu cấu hình đầy đủ](CONFIG_FULL_REFERENCE.vi.md)
 - [Vận hành hệ thống](OPERATIONS.md)

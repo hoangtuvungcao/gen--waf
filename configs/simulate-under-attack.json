@@ -1,9 +1,0 @@
-{
-  "rps_multiplier": 4.2,
-  "error_4xx_ratio": 0.5,
-  "waf_hits_per_min": 350,
-  "challenge_fail_ratio": 0.7,
-  "cpu_percent": 91,
-  "direct_origin_hits": 2,
-  "connection_backlog": 1500
-}

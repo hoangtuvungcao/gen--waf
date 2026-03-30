@@ -11,3 +11,8 @@
 
 - `benchmarks/`
   Profile benchmark và threshold dùng cho CI hoặc kiểm tra hiệu năng cục bộ.
+
+Nên đọc thêm:
+
+- [`../docs/CONFIG_REFERENCE.md`](../docs/CONFIG_REFERENCE.md)
+- [`../docs/CONFIG_FULL_REFERENCE.vi.md`](../docs/CONFIG_FULL_REFERENCE.vi.md)
