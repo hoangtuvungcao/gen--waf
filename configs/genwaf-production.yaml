@@ -1,0 +1,294 @@
+# ============================================================================
+# GEN WAF - CẤU HÌNH PRODUCTION MẪU
+# ============================================================================
+# Mục tiêu của file này:
+# - dễ đọc
+# - dễ bảo trì
+# - dễ dùng làm baseline trước khi render cấu hình thật cho từng VPS
+# - bám sát luồng triển khai production hiện tại của dự án
+#
+# Chuẩn port của dự án:
+# - data plane public: 80
+# - admin nội bộ genctl: 90
+# - backend thật: tùy ứng dụng của bạn
+# ============================================================================
+
+system:
+  # Tên hệ thống dùng trong log, status, và effective config.
+  name: genwaf-production
+
+  # Hiện file này dùng cho 1 node production đơn giản.
+  deployment: single
+
+  # Chế độ khởi động mặc định.
+  mode: normal
+
+  # Cho phép control plane tự nâng mode khi quan sát thấy tín hiệu bất thường.
+  auto_mode: true
+
+edge:
+  cloudflare:
+    # Bật khi GEN WAF chạy sau Cloudflare proxy.
+    enabled: true
+
+    # Chặn truy cập origin trực tiếp, chỉ tin traffic đi qua Cloudflare.
+    lock_origin_to_cf: true
+
+    # Tin header Cloudflare để lấy IP thật của client.
+    trust_cf_headers: true
+
+    # Cho phép cache static ở lớp ứng dụng khi phù hợp.
+    cache_static: true
+
+origin:
+  xdp:
+    # Mặc định tắt để flow production HTTP dễ dựng trước.
+    enabled: false
+
+    # Khi XDP tắt thì mode để off cho rõ ràng.
+    mode: off
+
+    # Interface public của VPS. Đổi lại theo máy thật khi cần.
+    interface: eth0
+
+    # Chế độ attach tương thích rộng nhất.
+    attach_mode: generic
+
+    # Single-node production hiện chưa dùng sync XDP từ controller.
+    sync_from_controller: false
+
+    # Với baseline hiện tại, enforcement chính vẫn ở HTTP layer.
+    allow_cf_only: false
+
+    # Để trống nếu chưa cần allowlist riêng ở tầng XDP.
+    allowlist_cidrs: []
+
+    # Giữ bật để drop packet lỗi khi sau này mở XDP.
+    drop_invalid_packets: true
+
+    # Mặc định tắt guard theo IP ở XDP để giảm độ phức tạp lúc triển khai đầu.
+    per_ip_guard: false
+
+  proxy:
+    # Engine data plane hiện tại của dự án.
+    engine: gendp
+
+    # Port public cố định của GEN WAF.
+    listen_port: 80
+
+    # Vì chạy sau Cloudflare nên chỉ lấy IP client từ edge tin cậy.
+    real_ip_from_edge_only: true
+
+    # Cho phép cache GET tĩnh khi phù hợp.
+    cache_enabled: true
+
+    # Giữ kết nối để giảm overhead TCP.
+    keepalive: true
+
+    # Parser HTTP hiện dùng trong runtime C++.
+    http_parser: native_cpp
+
+    # Mô hình xử lý phù hợp nhất với runtime hiện tại.
+    worker_model: epoll_dispatch
+
+    # Ngưỡng bảo vệ tài nguyên kết nối.
+    max_active_connections: 8192
+
+    # Giới hạn số request trên một keep-alive connection.
+    max_keepalive_requests: 128
+
+    # Timeout đọc header để giảm nguy cơ slowloris.
+    header_read_timeout_ms: 5000
+
+    # Giới hạn kích thước request vào RAM.
+    max_request_bytes: 10485760
+
+    # Giới hạn cache response trong bộ nhớ.
+    max_response_cache_entries: 2048
+
+    # Timeout kết nối upstream.
+    upstream_connect_timeout_ms: 3000
+
+    # Timeout đọc response từ upstream.
+    upstream_read_timeout_ms: 30000
+
+routing:
+  backend_pools:
+    - name: main_pool
+
+      # Cân bằng tải dạng đơn giản, dễ dự đoán.
+      balance: round_robin
+
+      # Upstream thật nên có endpoint /healthz.
+      health_check_path: /healthz
+      health_check_interval_ms: 3000
+      health_check_timeout_ms: 1000
+      unhealthy_threshold: 3
+      healthy_threshold: 2
+      fail_timeout_ms: 10000
+      retry_attempts: 1
+
+      servers:
+        - id: origin-1
+
+          # Đổi thành địa chỉ ứng dụng thật của bạn.
+          # Ví dụ:
+          # - 127.0.0.1:8080 nếu app chạy cùng máy
+          # - 10.0.0.10:8080 nếu app chạy trong private network
+          address: 10.0.0.10:8080
+          weight: 1
+
+  virtual_hosts:
+    - domains:
+        # Đổi thành domain thật.
+        - example.com
+        - www.example.com
+      default_pool: main_pool
+      path_rules: []
+
+waf:
+  # Bật WAF runtime.
+  enabled: true
+
+  # Engine WAF hiện tại.
+  engine: genwaf-runtime
+
+  # Ruleset mặc định của dự án.
+  ruleset: gen_policy_v1
+
+  # Mức nghiêm ngặt đủ chặt cho production vừa phải.
+  paranoia_level: 3
+
+  # Block theo anomaly score.
+  mode: anomaly_block
+
+  compatibility:
+    # Mở thêm pattern tương thích CRS cơ bản.
+    crs_import: true
+
+rate_limit:
+  # Bật rate-limit ở data plane.
+  enabled: true
+
+  # Single-node production mặc định dùng local token bucket.
+  backend: local
+
+  # Baseline vừa phải để bắt đầu rollout.
+  requests_per_second: 60
+  burst: 180
+
+  # Giới hạn state trong RAM.
+  max_tracked_ips: 100000
+
+  # Các path cần chú ý hơn.
+  sensitive_paths:
+    - /login
+    - /register
+    - /api/auth
+    - /admin
+
+bot_defense:
+  # Bật challenge layer.
+  enabled: true
+
+  # Mặc định cho qua request bình thường, challenge chỉ nâng khi cần.
+  default_action: allow
+
+  # Bật JS challenge.
+  js_challenge: true
+
+  # Bật replay protection cho token verify.
+  replay_protection: true
+
+  # Độ khó vừa phải để không làm nặng người dùng thật quá sớm.
+  challenge_difficulty: 3
+
+  # Giới hạn cache token đã dùng.
+  challenge_token_cache_entries: 50000
+
+  # TTL cookie sau khi vượt challenge.
+  challenge_pass_ttl_seconds: 1800
+
+  pow:
+    enabled: true
+    provider: altcha
+    mode: adaptive
+
+behavior:
+  # Bật lớp behavior cache và các tín hiệu hành vi.
+  enabled: true
+  decision_cache_ttl: 300s
+  max_decision_entries: 100000
+
+  fingerprinting:
+    # TLS fingerprint đang để tắt trong baseline này.
+    tls: false
+
+    # Bật fingerprint HTTP/cookie/session ở mức thực dụng.
+    http: true
+    cookie: true
+    session: true
+
+automation:
+  # Cho phép auto tune và auto escalate ở mức cơ bản.
+  enabled: true
+  auto_tune_from_host: true
+
+  escalate_on:
+    high_rps_multiplier: 3
+    high_4xx_ratio: 0.4
+    high_waf_hits_per_min: 200
+    high_challenge_fail_ratio: 0.7
+
+  cooldown_minutes: 30
+
+  actions:
+    elevated:
+      xdp_mode: adaptive
+      rate_limit_multiplier: 0.5
+      enable_sensitive_challenge: true
+      waf_paranoia_level: 3
+
+    under_attack:
+      xdp_mode: strict
+      rate_limit_multiplier: 0.2
+      enable_sitewide_challenge: true
+      waf_paranoia_level: 4
+      cache_aggressive: true
+
+cluster:
+  # Single-node production mặc định không bật sync cluster.
+  sync_enabled: false
+  sync_backend: controller
+  config_push: false
+  config_versioning: false
+  staged_rollout: false
+  shared_decisions: false
+  shared_decision_ttl_seconds: 900
+
+  # Giữ sẵn layout state để sau này mở rộng ít phải đổi đường dẫn.
+  local_decision_path: /var/lib/genwaf/cluster-decisions.json
+  local_observation_path: /var/lib/genwaf/node-observations.json
+  shared_rate_limit_path: /var/lib/genwaf/cluster-rate-limits.json
+  decision_poll_interval_ms: 500
+  observation_flush_interval_ms: 1000
+  observation_window_seconds: 30
+  shared_rate_limit_threshold: 500
+  shared_challenge_threshold: 200
+  node_heartbeat_interval_seconds: 5
+  controller_state_path: /var/lib/genwaf/controller-state.json
+
+storage:
+  # Mặc định chưa cần Redis trong single-node baseline.
+  redis_enabled: false
+  redis_address: 127.0.0.1:6379
+  redis_password: ""
+  redis_db: 0
+  redis_prefix: genwaf-prod
+  postgres_enabled: false
+
+observability:
+  metrics: true
+  logs: true
+  traces: false
+  dashboard: true

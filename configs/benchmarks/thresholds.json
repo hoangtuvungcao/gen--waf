@@ -1,0 +1,131 @@
+{
+  "profiles": {
+    "edge-baseline": {
+      "description": "Single edge node, baseline performance without lossy network",
+      "benchmarks": {
+        "http1-passthrough": {
+          "description": "HTTP/1.1 pass-through traffic",
+          "concurrency": 24,
+          "min_throughput_rps": 900,
+          "max_latency_p50_ms": 50,
+          "max_latency_p95_ms": 150,
+          "max_latency_p99_ms": 300,
+          "max_error_rate": 0.01,
+          "expected_status_codes": [200],
+          "error_budget_pct": 1
+        },
+        "http1-challenge": {
+          "description": "HTTP/1.1 with challenge requests",
+          "concurrency": 12,
+          "min_throughput_rps": 300,
+          "max_latency_p50_ms": 100,
+          "max_latency_p95_ms": 300,
+          "max_latency_p99_ms": 500,
+          "max_error_rate": 0.02,
+          "expected_status_codes": [200, 429],
+          "error_budget_pct": 2
+        },
+        "http2-passthrough": {
+          "description": "HTTP/2 pass-through traffic",
+          "concurrency": 24,
+          "min_throughput_rps": 1200,
+          "max_latency_p50_ms": 40,
+          "max_latency_p95_ms": 120,
+          "max_latency_p99_ms": 250,
+          "max_error_rate": 0.01,
+          "expected_status_codes": [200],
+          "error_budget_pct": 1
+        },
+        "http3-passthrough": {
+          "description": "HTTP/3 pass-through traffic",
+          "concurrency": 24,
+          "min_throughput_rps": 1100,
+          "max_latency_p50_ms": 45,
+          "max_latency_p95_ms": 130,
+          "max_latency_p99_ms": 270,
+          "max_error_rate": 0.01,
+          "expected_status_codes": [200],
+          "error_budget_pct": 1
+        }
+      }
+    },
+    "mobile-lossy": {
+      "description": "Mobile network with packet loss, jitter, and latency",
+      "benchmarks": {
+        "http2-passthrough": {
+          "description": "HTTP/2 on lossy network (passthrough)",
+          "concurrency": 24,
+          "min_throughput_rps": 700,
+          "max_latency_p50_ms": 80,
+          "max_latency_p95_ms": 250,
+          "max_latency_p99_ms": 400,
+          "max_error_rate": 0.05,
+          "expected_status_codes": [200],
+          "error_budget_pct": 5
+        },
+        "http2-challenge": {
+          "description": "HTTP/2 on lossy network (challenge)",
+          "concurrency": 12,
+          "min_throughput_rps": 200,
+          "max_latency_p50_ms": 150,
+          "max_latency_p95_ms": 400,
+          "max_latency_p99_ms": 600,
+          "max_error_rate": 0.05,
+          "expected_status_codes": [200, 429],
+          "error_budget_pct": 5
+        }
+      }
+    },
+    "cluster-redis-native": {
+      "description": "Multi-node cluster with shared Redis-backed decisions",
+      "benchmarks": {
+        "http1-passthrough": {
+          "description": "HTTP/1.1 through cluster (pass-through)",
+          "concurrency": 32,
+          "min_throughput_rps": 1000,
+          "max_latency_p50_ms": 60,
+          "max_latency_p95_ms": 180,
+          "max_latency_p99_ms": 350,
+          "max_error_rate": 0.01,
+          "expected_status_codes": [200],
+          "error_budget_pct": 1
+        },
+        "http2-passthrough": {
+          "description": "HTTP/2 through cluster (pass-through)",
+          "concurrency": 32,
+          "min_throughput_rps": 1400,
+          "max_latency_p50_ms": 50,
+          "max_latency_p95_ms": 160,
+          "max_latency_p99_ms": 320,
+          "max_error_rate": 0.01,
+          "expected_status_codes": [200],
+          "error_budget_pct": 1
+        },
+        "http1-challenge": {
+          "description": "HTTP/1.1 through cluster (with challenges/rate-limits)",
+          "concurrency": 16,
+          "min_throughput_rps": 350,
+          "max_latency_p50_ms": 120,
+          "max_latency_p95_ms": 350,
+          "max_latency_p99_ms": 550,
+          "max_error_rate": 0.02,
+          "expected_status_codes": [200, 429],
+          "error_budget_pct": 2
+        }
+      }
+    }
+  },
+  "operational_thresholds": {
+    "redis_sync_lag_ms": 5000,
+    "node_heartbeat_timeout_ms": 3000,
+    "controller_decision_propagation_ms": 2000,
+    "max_dropped_connections_pct": 0.1,
+    "max_memory_usage_mb": 256
+  },
+  "regression_detection": {
+    "throughput_regression_pct": 20,
+    "latency_p95_regression_pct": 25,
+    "latency_p99_regression_pct": 30,
+    "error_rate_increase_pct": 50
+  }
+}

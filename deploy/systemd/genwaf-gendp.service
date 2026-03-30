@@ -1,0 +1,24 @@
+[Unit]
+Description=GEN WAF data plane
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=genwaf
+Group=genwaf
+PermissionsStartOnly=true
+EnvironmentFile=/etc/genwaf/genwaf.env
+WorkingDirectory=/var/lib/genwaf
+ExecStartPre=/usr/bin/bash -lc '/usr/bin/fuser -k 80/tcp >/dev/null 2>&1 || true'
+ExecStartPre=/opt/genwaf/bin/genctl compile -config ${GENWAF_CONFIG} -output ${GENWAF_EFFECTIVE}
+ExecStart=/opt/genwaf/bin/gendp --config ${GENWAF_EFFECTIVE} --port ${GENWAF_PORT}
+Restart=on-failure
+RestartSec=2
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

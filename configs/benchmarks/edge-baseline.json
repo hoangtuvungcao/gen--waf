@@ -1,0 +1,12 @@
+{
+  "name": "edge-baseline",
+  "duration_seconds": 5,
+  "timeout_ms": 5000,
+  "pass_through_concurrency": 24,
+  "challenge_concurrency": 12,
+  "vary_client_ip": true,
+  "request_jitter_max_ms": 0,
+  "close_idle_every_request": false,
+  "disable_keepalives": false,
+  "protocols": ["http1", "http2", "http3"]
+}

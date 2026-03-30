@@ -1,0 +1,226 @@
+{
+  "dashboard": {
+    "title": "Gen WAF Operational Dashboard",
+    "tags": ["genwaf", "security", "performance"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "5s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Request Throughput",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(genwaf_requests_total{status=\"all\"}[1m])",
+            "refId": "A",
+            "legendFormat": "Total RPS"
+          },
+          {
+            "expr": "rate(genwaf_requests_total{status=\"blocked\"}[1m])",
+            "refId": "B",
+            "legendFormat": "Blocked RPS"
+          },
+          {
+            "expr": "rate(genwaf_requests_total{status=\"challenged\"}[1m])",
+            "refId": "C",
+            "legendFormat": "Challenged RPS"
+          },
+          {
+            "expr": "rate(genwaf_requests_total{status=\"rate_limited\"}[1m])",
+            "refId": "D",
+            "legendFormat": "Rate Limited RPS"
+          }
+        ],
+        "yaxes": [
+          {"label": "Requests/sec", "format": "short"}
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Request Rate by Status",
+        "type": "piechart",
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "genwaf_requests_total",
+            "refId": "A",
+            "legendFormat": "{{status}}"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Tracked IPs (Rate Limit State)",
+        "type": "gauge",
+        "gridPos": {"x": 0, "y": 8, "w": 6, "h": 8},
+        "targets": [
+          {
+            "expr": "genwaf_tracked_ips{type=\"current\"}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "max": 1024,
+            "min": 0,
+            "unit": "short"
+          }
+        },
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        }
+      },
+      {
+        "id": 4,
+        "title": "Redis Sync Lag",
+        "type": "stat",
+        "gridPos": {"x": 6, "y": 8, "w": 6, "h": 8},
+        "targets": [
+          {
+            "expr": "genwaf_redis_sync_lag_ms",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 1000},
+                {"color": "red", "value": 5000}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Redis Connection Status",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 8, "w": 6, "h": 8},
+        "targets": [
+          {
+            "expr": "genwaf_redis_connection_ok",
+            "refId": "A"
+          }
+        ],
+        "mappings": [
+          {
+            "type": "value",
+            "value": "0",
+            "text": "DOWN"
+          },
+          {
+            "type": "value",
+            "value": "1",
+            "text": "OK"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Node Cluster Status",
+        "type": "stat",
+        "gridPos": {"x": 18, "y": 8, "w": 6, "h": 8},
+        "targets": [
+          {
+            "expr": "genwaf_registered_nodes",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Cache Hit Rate",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 16, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "rate(genwaf_cache_hits[5m]) / (rate(genwaf_cache_hits[5m]) + rate(genwaf_cache_misses[5m]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit"
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "Backend Health",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 16, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "genwaf_backends_healthy",
+            "refId": "A",
+            "legendFormat": "Healthy"
+          },
+          {
+            "expr": "genwaf_backends_unhealthy",
+            "refId": "B",
+            "legendFormat": "Unhealthy"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Shared Decisions Propagated",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 22, "w": 24, "h": 6},
+        "targets": [
+          {
+            "expr": "rate(genwaf_decisions_propagated[5m])",
+            "refId": "A",
+            "legendFormat": "Decisions/sec"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Active Challenge Tokens",
+        "type": "gauge",
+        "gridPos": {"x": 0, "y": 28, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "genwaf_active_challenge_tokens{type=\"current\"}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "max": 10000,
+            "min": 0
+          }
+        }
+      },
+      {
+        "id": 11,
+        "title": "Token Refill Rate",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 28, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "genwaf_rate_limit_refill_rate",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        }
+      }
+    ]
+  }
+}

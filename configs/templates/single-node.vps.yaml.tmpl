@@ -1,0 +1,192 @@
+# ============================================================================
+# TEMPLATE CẤU HÌNH SINGLE-NODE CHO VPS
+# ============================================================================
+# File này được render tự động bởi:
+# - scripts/render-production-config.sh
+# - scripts/install-vps.sh
+#
+# Đây là baseline production thực tế nhất cho repo hiện tại:
+# - data plane public ở port 80
+# - admin genctl ở port 90
+# - backend thật chạy ở port riêng của ứng dụng
+# ============================================================================
+
+system:
+  # Tên hệ thống hiển thị trong status/log.
+  name: "__SYSTEM_NAME__"
+  deployment: single
+  mode: normal
+  auto_mode: true
+
+edge:
+  cloudflare:
+    # Bật hoặc tắt theo mode cài đặt:
+    # - direct: false
+    # - cloudflare: true
+    enabled: __EDGE_ENABLED__
+
+    # Chỉ bật khi muốn khóa origin sau Cloudflare.
+    lock_origin_to_cf: __LOCK_ORIGIN_TO_CF__
+
+    # Chỉ bật khi tin các header CF-*.
+    trust_cf_headers: __TRUST_CF_HEADERS__
+
+    cache_static: true
+
+origin:
+  xdp:
+    enabled: __XDP_ENABLED__
+    mode: "__XDP_MODE__"
+
+    # Interface public của máy thật.
+    interface: "__PUBLIC_INTERFACE__"
+    attach_mode: generic
+    sync_from_controller: false
+    allow_cf_only: __ALLOW_CF_ONLY__
+    allowlist_cidrs: []
+    drop_invalid_packets: true
+    per_ip_guard: __PER_IP_GUARD__
+
+  proxy:
+    engine: gendp
+
+    # Port public cố định của GEN WAF.
+    listen_port: __LISTEN_PORT__
+
+    # Nếu chạy sau Cloudflare thì chỉ lấy IP từ edge tin cậy.
+    real_ip_from_edge_only: __REAL_IP_FROM_EDGE_ONLY__
+
+    cache_enabled: true
+    keepalive: true
+    http_parser: native_cpp
+    worker_model: epoll_dispatch
+    max_active_connections: 8192
+    max_keepalive_requests: 128
+    header_read_timeout_ms: 5000
+    max_request_bytes: 10485760
+    max_response_cache_entries: 2048
+    upstream_connect_timeout_ms: 3000
+    upstream_read_timeout_ms: 30000
+
+routing:
+  backend_pools:
+    - name: main_pool
+      balance: round_robin
+      health_check_path: /healthz
+      health_check_interval_ms: 3000
+      health_check_timeout_ms: 1000
+      unhealthy_threshold: 3
+      healthy_threshold: 2
+      fail_timeout_ms: 10000
+      retry_attempts: 1
+      servers:
+        - id: origin-1
+          # Địa chỉ backend thật của ứng dụng.
+          address: "__ORIGIN_ADDRESS__"
+          weight: 1
+
+  virtual_hosts:
+    - domains:
+        # Domain public mà GEN WAF phục vụ.
+        - "__DOMAIN__"
+      default_pool: main_pool
+      path_rules: []
+
+waf:
+  enabled: true
+  engine: genwaf-runtime
+  ruleset: gen_policy_v1
+  paranoia_level: 3
+  mode: anomaly_block
+  compatibility:
+    crs_import: true
+
+rate_limit:
+  enabled: true
+  backend: local
+  requests_per_second: 60
+  burst: 180
+  max_tracked_ips: 100000
+  sensitive_paths:
+    - /login
+    - /register
+    - /api/auth
+    - /admin
+
+bot_defense:
+  enabled: true
+  default_action: allow
+  js_challenge: true
+  replay_protection: true
+  challenge_difficulty: 3
+  challenge_token_cache_entries: 50000
+  challenge_pass_ttl_seconds: 1800
+  pow:
+    enabled: true
+    provider: altcha
+    mode: adaptive
+
+behavior:
+  enabled: true
+  decision_cache_ttl: 300s
+  max_decision_entries: 100000
+  fingerprinting:
+    tls: false
+    http: true
+    cookie: true
+    session: true
+
+automation:
+  enabled: true
+  auto_tune_from_host: true
+  escalate_on:
+    high_rps_multiplier: 3
+    high_4xx_ratio: 0.4
+    high_waf_hits_per_min: 200
+    high_challenge_fail_ratio: 0.7
+  cooldown_minutes: 30
+  actions:
+    elevated:
+      xdp_mode: adaptive
+      rate_limit_multiplier: 0.5
+      enable_sensitive_challenge: true
+      waf_paranoia_level: 3
+    under_attack:
+      xdp_mode: strict
+      rate_limit_multiplier: 0.2
+      enable_sitewide_challenge: true
+      waf_paranoia_level: 4
+      cache_aggressive: true
+
+cluster:
+  sync_enabled: false
+  sync_backend: controller
+  config_push: false
+  config_versioning: false
+  staged_rollout: false
+  shared_decisions: false
+  shared_decision_ttl_seconds: 900
+  local_decision_path: "__STATE_DIR__/cluster-decisions.json"
+  local_observation_path: "__STATE_DIR__/node-observations.json"
+  shared_rate_limit_path: "__STATE_DIR__/cluster-rate-limits.json"
+  decision_poll_interval_ms: 500
+  observation_flush_interval_ms: 1000
+  observation_window_seconds: 30
+  shared_rate_limit_threshold: 500
+  shared_challenge_threshold: 200
+  node_heartbeat_interval_seconds: 5
+  controller_state_path: "__STATE_DIR__/controller-state.json"
+
+storage:
+  redis_enabled: false
+  redis_address: 127.0.0.1:6379
+  redis_password: ""
+  redis_db: 0
+  redis_prefix: genwaf-prod
+  postgres_enabled: false
+
+observability:
+  metrics: true
+  logs: true
+  traces: false
+  dashboard: true

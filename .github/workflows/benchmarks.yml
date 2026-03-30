@@ -1,0 +1,85 @@
+name: benchmarks
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  protocol-benchmarks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            clang \
+            cmake \
+            curl \
+            jq \
+            libbpf-dev \
+            libssl-dev \
+            openssl \
+            pkg-config \
+            psmisc
+
+      - name: Build benchmark assertion tool
+        run: go build -o build/genbench-assert ./cmd/genbench-assert
+
+      - name: Run edge benchmark suite
+        run: ./scripts/benchmark_suite.sh runtime/benchmarks/ci/edge
+
+      - name: Run cluster redis-native benchmark suite
+        run: ./scripts/benchmark_cluster_redis_native.sh runtime/benchmarks/ci/cluster-redis-native
+
+      - name: Assert edge protocol benchmarks
+        run: |
+          for result in runtime/benchmarks/ci/edge/*.json; do
+            if [[ ! "$result" =~ summary ]]; then
+              benchmark_name=$(basename "$result" .json)
+              echo "Validating $benchmark_name..."
+              ./build/genbench-assert \
+                -result="$result" \
+                -threshold=configs/benchmarks/thresholds.json \
+                -profile=edge-baseline \
+                -benchmark="$benchmark_name"
+            fi
+          done
+
+      - name: Assert cluster redis-native benchmarks
+        run: |
+          for result in runtime/benchmarks/ci/cluster-redis-native/*.json; do
+            if [[ ! "$result" =~ summary ]]; then
+              benchmark_name=$(basename "$result" .json)
+              echo "Validating $benchmark_name..."
+              ./build/genbench-assert \
+                -result="$result" \
+                -threshold=configs/benchmarks/thresholds.json \
+                -profile=cluster-redis-native \
+                -benchmark="$benchmark_name"
+            fi
+          done
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-artifacts
+          retention-days: 14
+          path: |
+            runtime/benchmarks/ci/**/*.json
+            /tmp/genwaf-benchmark-*.log
+            /tmp/genwaf-cluster-bench-*.log

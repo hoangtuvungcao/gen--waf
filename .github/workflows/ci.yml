@@ -1,0 +1,85 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            clang \
+            cmake \
+            curl \
+            jq \
+            libbpf-dev \
+            libssl-dev \
+            openssl \
+            pkg-config \
+            psmisc
+
+      - name: Build Go
+        run: go build ./...
+
+      - name: Build C++
+        run: |
+          cmake -S cpp -B build
+          cmake --build build
+
+      - name: Check shell scripts
+        run: |
+          chmod +x scripts/*.sh
+          for f in scripts/*.sh; do
+            bash -n "$f"
+          done
+
+      - name: Render install config
+        run: |
+          ./scripts/render-production-config.sh \
+            --output runtime/rendered-install-ci.yaml \
+            --domain ci.example.com \
+            --origin 127.0.0.1:8081 \
+            --interface lo \
+            --edge-mode direct
+          go run ./cmd/genctl validate -config runtime/rendered-install-ci.yaml >/dev/null
+
+      - name: Validate profiles
+        run: |
+          go run ./cmd/genctl validate -config configs/genwaf-production.yaml >/dev/null
+          for f in configs/profiles/*.yaml; do
+            go run ./cmd/genctl validate -config "$f" >/dev/null
+          done
+
+      - name: Regression suite
+        run: ./scripts/regression.sh
+
+      - name: Edge protocol smoke
+        run: ./scripts/edge_protocol_smoke.sh
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-failure-logs
+          retention-days: 7
+          path: |
+            /tmp/genwaf-*.log
+            runtime/**/*.json

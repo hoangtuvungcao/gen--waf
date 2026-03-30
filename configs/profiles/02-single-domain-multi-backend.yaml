@@ -1,0 +1,128 @@
+# Ho so 02:
+# 1 domain -> nhieu backend
+# Phu hop website co 2-3 app node va can quay vong tai.
+
+system:
+  name: gen-waf-single-domain-scaleout
+  deployment: single
+  mode: normal
+  auto_mode: true
+
+edge:
+  cloudflare:
+    enabled: true
+    lock_origin_to_cf: true
+    trust_cf_headers: true
+    cache_static: true
+
+origin:
+  xdp:
+    enabled: true
+    mode: adaptive
+    interface: lo
+    attach_mode: generic
+    allow_cf_only: true
+    drop_invalid_packets: true
+    per_ip_guard: true
+  proxy:
+    engine: gendp
+    listen_port: 80
+    real_ip_from_edge_only: true
+    cache_enabled: true
+    keepalive: true
+    header_read_timeout_ms: 2000
+    max_request_bytes: 1048576
+    max_response_cache_entries: 1024
+    upstream_connect_timeout_ms: 1200
+    upstream_read_timeout_ms: 4000
+
+routing:
+  backend_pools:
+    - name: app_pool
+      balance: round_robin
+      health_check_path: /healthz
+      health_check_interval_ms: 5000
+      health_check_timeout_ms: 1000
+      unhealthy_threshold: 2
+      healthy_threshold: 2
+      fail_timeout_ms: 10000
+      retry_attempts: 1
+      servers:
+        - id: app-1
+          address: 127.0.0.1:8081
+          weight: 1
+        - id: app-2
+          address: 127.0.0.1:8082
+          weight: 1
+        - id: app-3
+          address: 127.0.0.1:8083
+          weight: 1
+  virtual_hosts:
+    - domains:
+        - example.com
+        - www.example.com
+      default_pool: app_pool
+      path_rules: []
+
+waf:
+  enabled: true
+  paranoia_level: 2
+  mode: anomaly_block
+  compatibility:
+    crs_import: true
+
+rate_limit:
+  enabled: true
+  backend: local
+  requests_per_second: 15
+  burst: 45
+  sensitive_paths:
+    - /login
+    - /register
+    - /checkout
+
+bot_defense:
+  enabled: true
+  default_action: allow
+  js_challenge: true
+  replay_protection: true
+  challenge_difficulty: 4
+  challenge_token_cache_entries: 20000
+  challenge_pass_ttl_seconds: 300
+  pow:
+    enabled: true
+    provider: altcha
+    mode: adaptive
+
+behavior:
+  enabled: true
+  decision_cache_ttl: 90s
+  fingerprinting:
+    http: true
+    cookie: true
+
+automation:
+  enabled: true
+  auto_tune_from_host: true
+  escalate_on:
+    high_rps_multiplier: 3
+    high_4xx_ratio: 0.4
+    high_waf_hits_per_min: 250
+    high_challenge_fail_ratio: 0.6
+  cooldown_minutes: 20
+  actions:
+    elevated:
+      xdp_mode: adaptive
+      rate_limit_multiplier: 0.7
+      enable_sensitive_challenge: true
+      waf_paranoia_level: 3
+    under_attack:
+      xdp_mode: strict
+      rate_limit_multiplier: 0.4
+      enable_sitewide_challenge: true
+      waf_paranoia_level: 4
+      cache_aggressive: true
+
+observability:
+  metrics: true
+  logs: false

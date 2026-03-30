@@ -1,0 +1,12 @@
+{
+  "name": "mobile-lossy",
+  "duration_seconds": 6,
+  "timeout_ms": 3500,
+  "pass_through_concurrency": 48,
+  "challenge_concurrency": 24,
+  "vary_client_ip": true,
+  "request_jitter_max_ms": 120,
+  "close_idle_every_request": true,
+  "disable_keepalives": true,
+  "protocols": ["http1", "http2", "http3"]
+}

@@ -1,0 +1,155 @@
+# Ho so 06:
+# Multi-node local benchmark voi genedge + gendp + redis_native.
+# Muc tieu:
+# - do chi phi giao thuc qua 2 ingress node
+# - giu cluster mode practical co controller + genagent
+# - dung Redis dev embedded de lap lai de benchmark/CI
+
+system:
+  name: gen-waf-multi-node-redis-bench
+  deployment: multi
+  mode: normal
+  auto_mode: false
+
+edge:
+  cloudflare:
+    enabled: false
+    lock_origin_to_cf: false
+    trust_cf_headers: false
+    cache_static: false
+
+origin:
+  xdp:
+    enabled: false
+    mode: off
+    interface: lo
+    attach_mode: generic
+    sync_from_controller: false
+    allow_cf_only: false
+    drop_invalid_packets: false
+    per_ip_guard: false
+  proxy:
+    engine: gendp
+    listen_port: 80
+    real_ip_from_edge_only: true
+    cache_enabled: true
+    keepalive: true
+    header_read_timeout_ms: 2000
+    max_request_bytes: 1048576
+    max_response_cache_entries: 1024
+    upstream_connect_timeout_ms: 1200
+    upstream_read_timeout_ms: 4000
+
+routing:
+  backend_pools:
+    - name: app_pool
+      balance: round_robin
+      health_check_path: /healthz
+      health_check_interval_ms: 3000
+      health_check_timeout_ms: 1000
+      unhealthy_threshold: 2
+      healthy_threshold: 2
+      fail_timeout_ms: 5000
+      retry_attempts: 1
+      servers:
+        - id: app-a
+          address: 127.0.0.1:8081
+          weight: 1
+        - id: app-b
+          address: 127.0.0.1:8082
+          weight: 1
+  virtual_hosts:
+    - domains:
+        - test.bacsycay.click
+      default_pool: app_pool
+      path_rules: []
+
+waf:
+  enabled: true
+  engine: genwaf-runtime
+  ruleset: gen_policy_v1
+  paranoia_level: 2
+  mode: anomaly_block
+  compatibility:
+    crs_import: true
+
+rate_limit:
+  enabled: true
+  backend: redis_native
+  requests_per_second: 1200
+  burst: 2400
+  max_tracked_ips: 120000
+  sensitive_paths:
+    - /login
+    - /register
+    - /api/auth
+
+bot_defense:
+  enabled: true
+  default_action: allow
+  js_challenge: true
+  replay_protection: true
+  challenge_difficulty: 4
+  challenge_token_cache_entries: 20000
+  challenge_pass_ttl_seconds: 300
+  pow:
+    enabled: true
+    provider: altcha
+    mode: adaptive
+
+behavior:
+  enabled: true
+  decision_cache_ttl: 60s
+  max_decision_entries: 30000
+  fingerprinting:
+    tls: true
+    http: true
+    cookie: true
+    session: true
+
+automation:
+  enabled: false
+  auto_tune_from_host: false
+  cooldown_minutes: 20
+  actions:
+    elevated:
+      xdp_mode: adaptive
+      rate_limit_multiplier: 0.8
+      enable_sensitive_challenge: true
+      waf_paranoia_level: 3
+    under_attack:
+      xdp_mode: strict
+      rate_limit_multiplier: 0.5
+      enable_sitewide_challenge: true
+      waf_paranoia_level: 4
+      cache_aggressive: true
+
+cluster:
+  sync_enabled: true
+  sync_backend: controller
+  config_push: false
+  config_versioning: true
+  staged_rollout: false
+  shared_decisions: true
+  shared_decision_ttl_seconds: 300
+  local_decision_path: runtime/cluster-bench/default/cluster-decisions.json
+  local_observation_path: runtime/cluster-bench/default/node-observations.json
+  shared_rate_limit_path: runtime/cluster-bench/default/cluster-rate-limits.json
+  decision_poll_interval_ms: 1000
+  observation_flush_interval_ms: 1000
+  observation_window_seconds: 10
+  shared_rate_limit_threshold: 4000
+  shared_challenge_threshold: 1000
+  node_heartbeat_interval_seconds: 5
+  controller_state_path: runtime/cluster-bench/controller-state.json
+
+storage:
+  redis_enabled: true
+  redis_address: 127.0.0.1:16379
+  redis_db: 0
+  redis_prefix: genwaf-bench
+
+observability:
+  metrics: true
+  logs: false
+  dashboard: false

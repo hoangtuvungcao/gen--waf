@@ -1,0 +1,12 @@
+{
+  "name": "cluster-redis-native",
+  "duration_seconds": 5,
+  "timeout_ms": 5000,
+  "pass_through_concurrency": 32,
+  "challenge_concurrency": 16,
+  "vary_client_ip": true,
+  "request_jitter_max_ms": 20,
+  "close_idle_every_request": false,
+  "disable_keepalives": false,
+  "protocols": ["http1", "http2", "http3"]
+}
