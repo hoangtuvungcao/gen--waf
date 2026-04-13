@@ -1,0 +1,79 @@
+# GEN WAF - Cluster Configuration (Multi-Node)
+# ============================================
+
+system:
+  name: genwaf-cluster-node
+  deployment: multi     # MANDATORY for cluster
+  mode: normal
+  auto_mode: true
+
+edge:
+  cloudflare:
+    enabled: true
+    lock_origin_to_cf: true
+    trust_cf_headers: true
+
+origin:
+  xdp:
+    enabled: false
+    mode: adaptive
+    interface: eth0
+    attach_mode: generic
+    sync_from_controller: true  # Sync XDP decisions from Controller
+
+  proxy:
+    engine: gendp
+    listen_port: 80
+    real_ip_from_edge_only: true
+    keepalive: true
+
+routing:
+  backend_pools:
+    - name: app_pool
+      balance: round_robin
+      health_check_path: /
+      servers:
+        - id: backend-1
+          address: 10.0.0.5:8080 # Example Internal IP
+          weight: 1
+
+  virtual_hosts:
+    - domains:
+        - example.com
+      default_pool: app_pool
+
+waf:
+  enabled: true
+  mode: anomaly_block
+  paranoia_level: 3
+
+rate_limit:
+  enabled: true
+  requests_per_second: 150
+  burst: 500
+
+bot_defense:
+  enabled: true
+  js_challenge: true
+
+cluster:
+  node_id: "node-101"        # MUST be unique for each node in the cluster
+  sync_enabled: true         # MANDATORY for cluster
+  sync_backend: controller
+  shared_decisions: true
+  shared_rate_limit_path: /var/lib/genwaf/cluster-rate-limits.json
+  local_decision_path: /var/lib/genwaf/cluster-decisions.json
+  local_observation_path: /var/lib/genwaf/node-observations.json
+  controller_state_path: /var/lib/genwaf/controller-state.json
+
+storage:
+  # Redis is required for real-time cluster synchronization
+  redis_enabled: true
+  redis_address: "127.0.0.1:6379" # Replace with your Central Redis IP
+  redis_password: "YOUR_REDIS_PASSWORD"
+  redis_prefix: genwaf_cluster
+
+observability:
+  metrics: true
+  logs: true
+  dashboard: true
