@@ -15,54 +15,29 @@ This folder contains pre-built binaries and configuration templates for GEN WAF.
 
 ## 🚀 Installation & Running
 
-### 1. Extract the folder
-If you just downloaded this, ensure you are in the `release/` directory.
-
-### 2. Prepare your VPS
-If this is a fresh VPS, run the setup script to install all dependencies (OpenSSL, Redis, libbpf, etc.):
+### 1. Prepare your VPS
+If this is a fresh VPS, run the setup script to install all dependencies:
 
 ```bash
-chmod +x scripts/*.sh
+chmod +x scripts/*.sh bin/*
 sudo ./scripts/setup-vps.sh
 ```
 
-### 3. Configure your system
-Choose the configuration template that fits your deployment:
-- **Single Node**: Use `config/genwaf-single.yaml` (Default).
-- **Cluster/Multi-Node**: Use `config/genwaf-cluster.yaml`.
+### 2. Configure your system
+Choose a template and copy it to `config/genwaf.yaml`:
+- **Single Node**: `cp config/genwaf-single.yaml config/genwaf.yaml`
+- **Cluster**: `cp config/genwaf-cluster.yaml config/genwaf.yaml`
 
-To use a specific config, copy it to `config/genwaf.yaml`:
-```bash
-cp config/genwaf-single.yaml config/genwaf.yaml
-```
-
-If you make changes to `genwaf.yaml`, you **must** update the effective configuration used by the Data Plane:
-```bash
-./bin/genctl compile -config config/genwaf.yaml -output config/effective.json
-```
-
-## 🛡️ Built-in Protection Rules
-GEN WAF comes with a high-performance ruleset (`gen_policy_v1`) enabled by default:
-- **SQL Injection**: Detects common patterns like `union select`, `' or 1=1`, `sleep(`, `benchmark(`.
-- **Cross-Site Scripting (XSS)**: Detects `<script`, `%3cscript`.
-- **Path Traversal**: Detects `../`, `%2e%2e%2f`.
-- **Sensitive Path Guard**: Automatic rate-limiting on `/login`, `/admin`, `/api/auth`.
-- **Behavioral Analysis**: Detects missing User-Agents or suspicious cookie-less requests to sensitive paths.
-
-### 4. Start the services
-You can use the provided script to start both the Data Plane (`gendp`) and the Control Plane (`genctl`).
+### 3. Start the services
+The provided script automatically handles configuration synchronization, validation, and starts both the **Data Plane** and **Control Plane**.
 
 ```bash
-chmod +x bin/*
 ./scripts/start.sh
 ```
 
-### 5. Verify
-Check the logs to ensure everything is running:
-- `logs/gendp.log`: Data plane logs (proxy traffic).
-- `logs/genctl.log`: Control plane logs (dashboard & cluster sync).
-
-The dashboard will be available at `http://127.0.0.1:8080/dashboard`.
+### 4. Verify
+- **Dashboard**: Access at `http://YOUR_VPS_IP:8080/dashboard`
+- **Logs**: Check `logs/gendp.log` (WAF traffic) and `logs/genctl.log` (Admin/Cluster)
 
 ## 🛡️ High-Performance XDP Protection (L4)
 GEN WAF includes kernel-level packet filtering via XDP. This allows blocking millions of packets per second with minimal CPU usage.

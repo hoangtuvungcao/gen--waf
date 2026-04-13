@@ -14,12 +14,20 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# 2. Start Data Plane (gendp)
+# 2. Compile configuration for Data Plane (Sync)
+echo "Syncing configuration..."
+./bin/genctl compile -config config/genwaf.yaml -output config/effective.json
+if [ $? -ne 0 ]; then
+    echo "Configuration compilation failed!"
+    exit 1
+fi
+
+# 3. Start Data Plane (gendp)
 echo "Starting Data Plane (gendp)..."
 nohup ./bin/gendp --config config/effective.json > logs/gendp.log 2>&1 &
 GENDP_PID=$!
 
-# 3. Start Control Plane (genctl)
+# 4. Start Control Plane (genctl)
 echo "Starting Control Plane (genctl)..."
 nohup ./bin/genctl serve --config config/genwaf.yaml -listen :8080 > logs/genctl.log 2>&1 &
 GENCTL_PID=$!
