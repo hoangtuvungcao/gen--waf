@@ -1,0 +1,89 @@
+# GEN WAF - Production Configuration Template
+# ==========================================
+# This file defines the behavior of your WAF node.
+# Standard Ports: 
+#   - HTTP Proxy: 80
+#   - Dashboard/API: 8080
+
+system:
+  name: genwaf-vps-node
+  deployment: single    # Set to 'multi' if part of a cluster
+  mode: normal          # normal, elevated, under_attack
+  auto_mode: true       # Allow system to automatically upgrade mode on attack
+
+edge:
+  cloudflare:
+    enabled: true       # Set to true if using Cloudflare Proxy (Orange Cloud)
+    lock_origin_to_cf: true # Only allow traffic from Cloudflare IP ranges
+    trust_cf_headers: true  # Extract real client IP from CF headers
+    cache_static: true      # Enable basic static asset caching
+
+origin:
+  xdp:
+    enabled: false      # Enable this after running scripts/xdp-manage.sh
+    mode: adaptive      # off, monitor, adaptive, strict
+    interface: eth0     # Main network interface
+    attach_mode: generic 
+    sync_from_controller: false
+    drop_invalid_packets: true
+    per_ip_guard: true
+
+  proxy:
+    engine: gendp
+    listen_port: 80     # Port clients connect to
+    real_ip_from_edge_only: true
+    cache_enabled: true
+    keepalive: true
+    worker_model: epoll_dispatch
+    max_active_connections: 16384
+    header_read_timeout_ms: 5000
+
+routing:
+  # Define where your actual application is running
+  backend_pools:
+    - name: main_app_pool
+      balance: round_robin
+      health_check_path: /
+      servers:
+        - id: app-backend-1
+          address: 127.0.0.1:8080 # Change this to your real APP port
+          weight: 1
+
+  # Define which domains are protected
+  virtual_hosts:
+    - domains:
+        - example.com         # Change to your domain
+        - www.example.com
+      default_pool: main_app_pool
+
+waf:
+  enabled: true
+  mode: anomaly_block   # detect_only, anomaly_block
+  paranoia_level: 3     # 1-4 (Higher is more aggressive)
+
+rate_limit:
+  enabled: true
+  requests_per_second: 150
+  burst: 500
+
+bot_defense:
+  enabled: true
+  js_challenge: true    # Show a brief "Check" page to users
+  pow_enabled: true     # Proof-of-Work to stop simple head-less bots
+
+cluster:
+  node_id: "node-vps-01"
+  sync_enabled: false   # Enable if using multiple nodes with a Central Controller
+  local_decision_path: /var/lib/genwaf/cluster-decisions.json
+  local_observation_path: /var/lib/genwaf/node-observations.json
+  controller_state_path: /var/lib/genwaf/controller-state.json
+
+storage:
+  # Redis is optional for single-node but recommended for cluster features
+  redis_enabled: false
+  redis_address: "127.0.0.1:6379"
+
+observability:
+  metrics: true
+  logs: true
+  dashboard: true

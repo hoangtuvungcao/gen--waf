@@ -1,0 +1,32 @@
+{
+  "name": "genwaf-node",
+  "deployment": "single",
+  "mode": "normal",
+  "listen_port": 80,
+  "cloudflare_enabled": true,
+  "lock_origin_to_cf": true,
+  "trust_cf_headers": true,
+  "xdp_enabled": false,
+  "xdp_interface": "eth0",
+  "xdp_attach_mode": "generic",
+  "real_ip_from_edge_only": true,
+  "waf_enabled": true,
+  "waf_mode": "anomaly_block",
+  "waf_paranoia_level": 3,
+  "rate_limit_enabled": true,
+  "rate_limit_rps": 100,
+  "rate_limit_burst": 300,
+  "bot_defense_enabled": true,
+  "js_challenge": true,
+  "pow_enabled": true,
+  "cluster_sync_enabled": false,
+  "local_decision_path": "/var/lib/genwaf/cluster-decisions.json",
+  "local_observation_path": "/var/lib/genwaf/node-observations.json",
+  "backend_targets": [
+    "pool=main_pool|balance=round_robin|health_path=/healthz|id=origin-1|address=127.0.0.1:8080|weight=1"
+  ],
+  "virtual_host_rules": [
+    "domains=example.com|default_pool=main_pool|paths="
+  ],
+  "dashboard_enabled": true
+}
